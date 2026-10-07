@@ -1,3 +1,4 @@
+import math
 import random
 import pygame
 
@@ -27,9 +28,31 @@ def moving_platform_speed(index, total):
     return 1 if index < total * 0.5 else 2  # integer speeds: pygame.Rect truncates floats
 
 
+SPARKLES = []  # each: [x, y, vx, vy, life] in world coordinates
+COMBO = {"count": 0}
+
+
 def on_coin_collected(coin, score):
     """Called the instant the player collects a coin, after its value has been added to the score. Add a sound or sparkle here."""
-    pass
+    COMBO["count"] += 1
+    for _ in range(14):
+        angle = random.uniform(0, 2 * math.pi)
+        speed = random.uniform(1.0, 3.5)
+        SPARKLES.append([coin.pos.x, coin.pos.y, speed * math.cos(angle), speed * math.sin(angle), 25])
+
+
+def update_sparkles():
+    for sp in SPARKLES:
+        sp[0] += sp[2]
+        sp[1] += sp[3]
+        sp[4] -= 1
+    SPARKLES[:] = [sp for sp in SPARKLES if sp[4] > 0]
+
+
+def draw_sparkles(screen, cam_y):
+    for x, y, _, _, life in SPARKLES:
+        r = max(1, life // 8)
+        pygame.draw.circle(screen, (255, 240, 150), (int(x), int(y - cam_y)), r)
 
 
 class Platform:
@@ -139,6 +162,8 @@ class Game:
         self.lives = LIVES_START
         self.last_safe = pygame.Vector2(self.player.rect.x, self.player.rect.y)
         self.state = "play"
+        SPARKLES.clear()
+        COMBO["count"] = 0
         self.top_y = self.platforms[-1].rect.y
 
     def score(self):
@@ -153,6 +178,7 @@ class Game:
             if dx and self.player.standing_on is plat:
                 self.player.rect.x += dx
         self.player.update(self.platforms)
+        update_sparkles()
 
         target_cam = self.player.rect.centery - HEIGHT // 2
         if target_cam < self.cam_y:
@@ -178,6 +204,7 @@ class Game:
             else:
                 self.player.rect.x, self.player.rect.y = int(self.last_safe.x), int(self.last_safe.y)
                 self.player.vel_y = 0
+                COMBO["count"] = 0  # combo resets when the player falls
 
         if self.player.rect.y <= self.top_y:
             self.state = "win"
@@ -189,9 +216,13 @@ class Game:
         for coin in self.coins:
             coin.draw(screen, self.cam_y)
         self.player.draw(screen, self.cam_y)
+        draw_sparkles(screen, self.cam_y)
 
         hud = self.font.render(f"Height: {self.height}m  Coins: {self.coin_score // 50}  Lives: {self.lives}", True, (200, 200, 200))
         screen.blit(hud, (10, 10))
+        if COMBO["count"] >= 2:
+            combo = self.font.render(f"Combo x{COMBO['count']}!", True, (255, 220, 80))
+            screen.blit(combo, (10, 34))
 
         if self.state != "play":
             text = "YOU REACHED THE TOP!" if self.state == "win" else "YOU FELL!"
