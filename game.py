@@ -22,7 +22,9 @@ def platform_color(index, total):
 
 def moving_platform_speed(index, total):
     """Return a horizontal oscillation speed in pixels/frame for the platform at this index, or None/0 to keep it static."""
-    pass
+    if index <= 0 or index % 3 != 0:
+        return None
+    return 1 if index < total * 0.5 else 2  # integer speeds: pygame.Rect truncates floats
 
 
 def on_coin_collected(coin, score):
